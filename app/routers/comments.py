@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 
-from app.database import async_session
+from app.database import Video, async_session
 from app.models import User, Comment
 from app.schemas import CommentCreate, CommentOut
 from app.auth import get_current_active_user
@@ -42,22 +42,31 @@ async def get_comments(video_id: int):
 
 # 2. Создание комментария (только для авторизованных)
 @router.post("/videos/{video_id}/comments", response_model=CommentOut)
-async def create_comment(video_id: int, comment_data: CommentCreate, current_user: User = Depends(get_current_active_user)):
+async def create_comment(
+    video_id: int,
+    payload: CommentCreate,
+    current_user: User = Depends(get_current_active_user),
+):
     async with async_session() as session:
-        # Блок begin() сам сделает commit при выходе
-        async with session.begin():
-            new_comment = Comment(
-                text=comment_data.text, 
-                video_id=video_id, 
-                user_id=current_user.id
-            )
-            session.add(new_comment)
-            # НЕ пишем await session.commit() здесь!
-        
-        # refresh должен быть ПОСЛЕ закрытия транзакции, чтобы получить id
-        await session.refresh(new_comment)
-        
-    return new_comment
+        video = await session.get(Video, video_id)
+        if not video:
+            raise HTTPException(404, "Видео не найдено")
+
+        comment = Comment(
+            video_id=video_id,
+            user_id=current_user.id,
+            text=payload.text,
+        )
+        session.add(comment)
+        await session.commit()
+        await session.refresh(comment)
+
+        return CommentOut(
+            id=comment.id,
+            text=comment.text,
+            user_email=current_user.email,   # <- просто email, без username
+            created_at=comment.created_at,
+        )
 
 # 3. Удаление комментария (только автор или админ)
 @router.delete("/comments/{comment_id}", response_model=None)

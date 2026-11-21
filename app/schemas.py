@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
+import datetime
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from typing import Optional
 
 class UserCreate(BaseModel):
@@ -42,10 +44,10 @@ class CommentCreate(BaseModel):
 class CommentOut(BaseModel):
     id: int
     text: str
-    video_id: int
-    user_id: int
-    user_email: str  # <-- Добавляем поле
-    created_at: Optional[str] = None  # <-- ЭТО ГЛАВНОЕ
+    user_email: str
+    created_at: datetime.datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class TokenData(BaseModel):
     email: Optional[str] = None  # <-- Было username, стало email
