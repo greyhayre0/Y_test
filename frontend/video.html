@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Смотреть видео - YouTube MVP{% endblock %}
+
+{% block content %}
+<style>
+    /* Дополнительные стили для страницы видео */
+    .video-page-container { display: flex; gap: 24px; max-width: 1400px; margin: 0 auto; }
+    .primary-column { flex: 1; min-width: 0; }
+    .secondary-column { width: 380px; flex-shrink: 0; }
+
+    .player-wrapper { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+    .player-wrapper video { width: 100%; height: 100%; }
+
+    .video-title { font-size: 20px; font-weight: bold; margin-bottom: 12px; line-height: 1.3; }
+    
+    .video-actions-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .channel-info { display: flex; align-items: center; gap: 12px; }
+    .channel-info .channel-avatar { width: 40px; height: 40px; }
+    .channel-text h4 { font-size: 16px; margin-bottom: 2px; }
+    .channel-text p { font-size: 12px; color: var(--text-muted); }
+    
+    .subscribe-btn { background: var(--text-main); color: var(--bg-main); border: none; padding: 10px 16px; border-radius: 20px; font-weight: 500; cursor: pointer; margin-left: 12px; }
+    .subscribe-btn:hover { background: #d9d9d9; }
+
+    .actions-group { display: flex; gap: 8px; }
+    .action-btn { display: flex; align-items: center; gap: 6px; background: var(--bg-chip); color: var(--text-main); border: none; padding: 8px 16px; border-radius: 20px; font-weight: 500; cursor: pointer; }
+    .action-btn:hover { background: #3f3f3f; }
+    .action-btn i { font-size: 18px; }
+
+    .description-box { background: var(--bg-chip); padding: 12px 16px; border-radius: 12px; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+    .description-box .stats { margin-bottom: 8px; color: var(--text-main); font-weight: bold; }
+
+    /* Комментарии */
+    .comments-section { margin-top: 24px; padding-bottom: 50px; }
+    .comments-header { font-size: 20px; font-weight: bold; margin-bottom: 24px; }
+    .add-comment { display: flex; gap: 16px; margin-bottom: 32px; }
+    .add-comment input { flex: 1; background: transparent; border: none; border-bottom: 1px solid var(--border-color); color: var(--text-main); padding: 8px 0; font-size: 14px; outline: none; }
+    .add-comment input:focus { border-bottom-color: var(--text-main); }
+    
+    .comment-item { display: flex; gap: 16px; margin-bottom: 20px; }
+    .comment-content { flex: 1; }
+    .comment-header { font-size: 13px; margin-bottom: 4px; }
+    .comment-header .author { font-weight: bold; margin-right: 8px; }
+    .comment-header .date { color: var(--text-muted); }
+    .comment-text { font-size: 14px; line-height: 1.4; }
+
+    /* Рекомендации */
+    .recommendation-item { display: flex; gap: 8px; margin-bottom: 12px; cursor: pointer; text-decoration: none; color: inherit; }
+    .recommendation-item .thumbnail { width: 168px; flex-shrink: 0; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background: #222; }
+    .recommendation-item .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+    .rec-info { flex: 1; }
+    .rec-info h4 { font-size: 14px; font-weight: 500; line-height: 1.3; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .rec-info p { font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
+</style>
+
+<div class="video-page-container">
+    <!-- ЛЕВАЯ КОЛОНКА (Плеер и Комментарии) -->
+    <div class="primary-column">
+        
+        <!-- Плеер -->
+        <div class="player-wrapper">
+            <video id="video-player" controls></video>
+        </div>
+
+        <!-- Заголовок -->
+        <h1 class="video-title" id="video-title">Загрузка...</h1>
+
+        <!-- Канал и действия -->
+        <div class="video-actions-row">
+            <div class="channel-info">
+                <div class="channel-avatar"></div>
+                <div class="channel-text">
+                    <h4 id="channel-name">Автор</h4>
+                    <p>Подписчиков: 0</p>
+                </div>
+                <button class="subscribe-btn">Подписаться</button>
+            </div>
+            
+            <div class="actions-group">
+                <button class="action-btn" id="like-btn"><i class="ph ph-thumbs-up"></i> <span id="like-count">0</span></button>
+                <button class="action-btn"><i class="ph ph-thumbs-down"></i></button>
+                <button class="action-btn"><i class="ph ph-share-network"></i> Поделиться</button>
+            </div>
+        </div>
+
+        <!-- Описание -->
+        <div class="description-box">
+            <div class="stats" id="video-stats">0 просмотров • Дата</div>
+            <p id="video-description">Описание видео...</p>
+        </div>
+
+        <!-- Комментарии -->
+        <div class="comments-section">
+            <div class="comments-header">Комментарии</div>
+            
+            <div class="add-comment">
+                <div class="channel-avatar"></div>
+                <input type="text" placeholder="Введите комментарий..." id="comment-input">
+            </div>
+
+            <div id="comments-list">
+                <p style="color: #aaa;">Загрузка комментариев...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА (Рекомендации) -->
+    <div class="secondary-column">
+        <h3 style="font-size: 16px; margin-bottom: 16px; font-weight: 500;">Похожие видео</h3>
+        <div id="recommendations-list">
+            <!-- Сюда JS вставит рекомендации -->
+        </div>
+    </div>
+</div>
+
+<!-- ================= СКРИПТЫ ДЛЯ СТРАНИЦЫ ВИДЕО ================= -->
+<script>
+    const videoId = {{ video_id }};
+    const API_URL = 'http://127.0.0.1:8000';
+
+    // 1. Загрузка данных о видео
+    async function loadVideo() {
+        try {
+            const res = await fetch(`${API_URL}/videos/${videoId}`);
+            if (!res.ok) throw new Error('Видео не найдено');
+            const v = await res.json();
+            
+            document.getElementById('video-title').textContent = v.title;
+            document.getElementById('video-description').textContent = v.description || 'Нет описания';
+            document.getElementById('video-stats').textContent = `${v.views || 0} просмотров • ${new Date(v.created_at || Date.now()).toLocaleDateString()}`;
+            document.getElementById('like-count').textContent = v.likes_count || 0;
+            document.getElementById('channel-name').textContent = `Автор #${v.owner_id}`;
+            
+            // Устанавливаем источник видео
+            const player = document.getElementById('video-player');
+            if (v.file_path) {
+                player.src = `${API_URL}${v.file_path}`;
+            }
+        } catch (e) {
+            console.error(e);
+            document.getElementById('video-title').textContent = 'Ошибка загрузки видео';
+        }
+    }
+
+    // 2. Загрузка комментариев
+    async function loadComments() {
+        const list = document.getElementById('comments-list');
+        try {
+            const res = await fetch(`${API_URL}/videos/${videoId}/comments`);
+            if (!res.ok) return;
+            const comments = await res.json();
+
+            if (comments.length === 0) {
+                list.innerHTML = '<p style="color: #aaa;">Комментариев пока нет.</p>';
+                return;
+            }
+
+            list.innerHTML = comments.map(c => `
+                <div class="comment-item">
+                    <div class="channel-avatar"></div>
+                    <div class="comment-content">
+                        <div class="comment-header">
+                            <span class="author">${c.user_email}</span>
+                            <span class="date">${new Date(c.created_at || Date.now()).toLocaleDateString()}</span>
+                        </div>
+                        <div class="comment-text">${c.text}</div>
+                    </div>
+                </div>
+            `).join('');
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // 3. Загрузка рекомендаций
+    async function loadRecommendations() {
+        const list = document.getElementById('recommendations-list');
+        try {
+            const res = await fetch(`${API_URL}/videos?exclude_id=${videoId}`);
+            const videos = await res.json();
+
+            // Если видео мало, используем заглушки
+            const fallbacks = [
+                { id: 99, title: "Как программировать на Python", owner_id: 1, views: 15000, thumbnail_path: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=300" },
+                { id: 98, title: "Обзор нового iPhone", owner_id: 2, views: 1200000, thumbnail_path: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=300" }
+            ];
+            
+            const items = videos.length > 0 ? videos : fallbacks;
+
+            list.innerHTML = items.map(v => `
+                <a href="/video?id=${v.id}" class="recommendation-item">
+                    <div class="thumbnail">
+                        <img src="${v.thumbnail_path || 'https://img.goodfon.ru/wallpaper/big/e/74/fon-seryi-gradient.webp'}" alt="thumb">
+                    </div>
+                    <div class="rec-info">
+                        <h4>${v.title}</h4>
+                        <p>Автор #${v.owner_id}</p>
+                        <p>${v.views || 0} просмотров</p>
+                    </div>
+                </a>
+            `).join('');
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // 4. Отправка комментария
+    document.getElementById('comment-input').addEventListener('keypress', async (e) => {
+        if (e.key === 'Enter' && e.target.value.trim() !== '') {
+            const text = e.target.value;
+            e.target.value = ''; 
+
+            // 1. Достаем токен из localStorage
+            const token = localStorage.getItem('token');
+            
+            // 2. Если токена нет — не даем отправить и просим войти
+            if (!token) {
+                alert('Чтобы оставить комментарий, нужно войти в аккаунт!');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/videos/${videoId}/comments`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` // <-- 3. ПЕРЕДАЕМ ТОКЕН
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+                
+                if (res.ok) {
+                    loadComments(); // Обновляем список
+                } else {
+                    // 4. Выводим ошибку от сервера (например, если токен просрочен)
+                    const err = await res.json();
+                    alert(`Ошибка: ${err.detail || 'Не удалось отправить комментарий'}`);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Ошибка сети');
+            }
+        }
+    });
+
+    // 5. Лайк
+    document.getElementById('like-btn').addEventListener('click', async () => {
+        try {
+            const res = await fetch(`${API_URL}/videos/${videoId}/like`, { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('like-count').textContent = data.likes_count;
+            } else {
+                alert('Ошибка лайка. Возможно, нужна авторизация.');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    });
+
+    // Запуск при загрузке
+    document.addEventListener('DOMContentLoaded', () => {
+        loadVideo();
+        loadComments();
+        loadRecommendations();
+    });
+</script>
+{% endblock %}

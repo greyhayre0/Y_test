@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - YouTube MVP{% endblock %}
+
+{% block content %}
+    <!-- Верхние теги -->
+    <div class="chips-container">
+        <button class="chip active">Все</button>
+        <button class="chip">Музыка</button>
+        <button class="chip">Игры</button>
+        <button class="chip">Новости</button>
+    </div>
+
+    <!-- Сетка видео -->
+    <div class="video-grid" id="video-grid">
+        <p style="color: #aaa;">Загрузка видео...</p>
+    </div>
+
+    <!-- Скрипт для загрузки и отрисовки -->
+    <script>
+        async function loadVideos() {
+            const grid = document.getElementById('video-grid');
+            try {
+                const res = await fetch('/videos');
+                const videos = await res.json();
+                
+                if (videos.length === 0) {
+                    grid.innerHTML = '<p style="color: #aaa;">Видео пока нет. Загрузите первое!</p>';
+                    return;
+                }
+                
+                grid.innerHTML = videos.map(v => `
+                    <div class="video-card" onclick="window.location.href='/video?id=${v.id}'">
+                        <div class="thumbnail">
+                            <!-- Если есть путь к превью в базе, берем его, иначе заглушку -->
+                            <img src="${v.thumbnail_path || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=600&q=80'}" alt="Thumb">
+                            <!-- Длительность видео (пока заглушка, если нет в базе) -->
+                            <span class="duration">${v.duration || '10:00'}</span>
+                        </div>
+                        <div class="video-info">
+                            <div class="channel-avatar"></div>
+                            <div class="video-text">
+                                <h3>${v.title}</h3>
+                                <p class="channel-name">
+                                    Автор #${v.owner_id} 
+                                    <i class="ph ph-check-circle"></i>
+                                </p>
+                                <p class="stats">${v.views || 0} просмотров • Только что</p>
+                            </div>
+                            <button class="icon-btn"><i class="ph ph-dots-three-vertical"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                grid.innerHTML = '<p style="color: #ff4d4d;">Ошибка загрузки.</p>';
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadVideos);
+    </script>
+{% endblock %}

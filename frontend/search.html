@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Поиск - YouTube MVP{% endblock %}
+
+{% block content %}
+    <div class="chips-container">
+        <button class="chip active">Результаты поиска</button>
+    </div>
+
+    <h2 style="margin-bottom: 16px;">Результаты по запросу: <span id="search-query" style="color: #aaa;"></span></h2>
+
+    <div class="video-grid" id="video-grid">
+        <p style="color: #aaa;">Загрузка результатов...</p>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const query = urlParams.get('q');
+        
+        if (query) {
+            document.getElementById('search-query').textContent = query;
+            
+            async function searchVideos() {
+                const grid = document.getElementById('video-grid');
+                try {
+                    const res = await fetch(`/videos/search?q=${encodeURIComponent(query)}`);
+                    const videos = await res.json();
+                    
+                    if (videos.length === 0) {
+                        grid.innerHTML = '<p style="color: #aaa;">Ничего не найдено.</p>';
+                        return;
+                    }
+                    
+                    grid.innerHTML = videos.map(v => `
+                        <div class="video-card" onclick="window.location.href='/video?id=${v.id}'">
+                            <div class="thumbnail">
+                                <img src="${v.thumbnail_path || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=600&q=80'}" alt="Thumb">
+                            </div>
+                            <div class="video-info">
+                                <h3>${v.title}</h3>
+                                <p class="stats">Автор #${v.owner_id} • ${v.views || 0} просмотров</p>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (e) {
+                    grid.innerHTML = '<p style="color: #ff4d4d;">Ошибка поиска.</p>';
+                }
+            }
+            
+            searchVideos();
+        }
+    </script>
+{% endblock %}

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}YouTube MVP{% endblock %}</title>
+    <link rel="stylesheet" href="/frontend/style.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* Стили для модалок */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #282828; width: 100%; max-width: 500px; border-radius: 12px; padding: 24px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-body { display: flex; flex-direction: column; gap: 16px; }
+        .modal-body input { width: 100%; padding: 12px; background: #121212; border: 1px solid #3f3f3f; color: white; border-radius: 4px; }
+        .btn-primary { background: #fff; color: #000; border: none; padding: 12px 24px; border-radius: 4px; font-weight: 500; cursor: pointer; }
+        
+        /* Сворачивание сайдбара */
+        body.sidebar-collapsed { grid-template-columns: 72px 1fr; }
+        body.sidebar-collapsed .sidebar { width: 72px; overflow: hidden; }
+        body.sidebar-collapsed .sidebar span, 
+        body.sidebar-collapsed .sidebar-title, 
+        body.sidebar-collapsed .divider { display: none; }
+        body.sidebar-collapsed .logo-text { display: none; }
+        
+        /* Стиль для аватара с буквой */
+        .avatar-letter {
+            width: 32px; height: 32px; border-radius: 50%;
+            background-color: #ff0000; color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 16px; cursor: pointer;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ================= HEADER ================= -->
+    <header class="header">
+        <div class="header-left">
+            <button class="icon-btn" id="toggle-sidebar-btn"><i class="ph ph-list"></i></button>
+            <a href="/" class="logo">
+                <i class="ph-fill ph-youtube-logo" style="color: #ff0000; font-size: 28px;"></i>
+                <span class="logo-text">YouTube<sup>MVP</sup></span>
+            </a>
+        </div>
+        <div class="header-center">
+            <div class="search-box">
+                <input type="text" placeholder="Поиск..." id="search-input">
+                <button class="search-btn" id="search-btn"><i class="ph ph-magnifying-glass"></i></button>
+            </div>
+        </div>
+        
+        <!-- Сюда JS будет вставлять кнопки в зависимости от авторизации -->
+        <div class="header-right" id="header-right-dynamic">
+            <!-- По умолчанию (пока JS не загрузился) показываем кнопку "Войти" -->
+            <button class="create-btn" onclick="document.getElementById('login-modal').style.display='flex'">
+                <i class="ph ph-user"></i> Войти
+            </button>
+        </div>
+    </header>
+
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar" id="main-sidebar">
+        <ul class="nav-list">
+            <a href="/" style="text-decoration: none; color: inherit;">
+                <li class="active"><i class="ph-fill ph-house"></i> <span>Главная</span></li>
+            </a>
+            <li><i class="ph ph-play-square"></i> <span>Shorts</span></li>
+            <li><i class="ph ph-subtitles"></i> <span>Подписки</span></li>
+        </ul>
+    </aside>
+
+    <!-- ================= MAIN (Контент страниц) ================= -->
+    <main class="main-content" id="app-content">
+        {% block content %}{% endblock %}
+    </main>
+    
+
+    <!-- ================= МОДАЛКА ЗАГРУЗКИ ВИДЕО ================= -->
+    <div id="upload-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Загрузка видео</h2>
+                <button class="icon-btn" onclick="document.getElementById('upload-modal').style.display='none'"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="file" id="file-input" accept="video/*" style="display: none;">
+                <button class="btn-primary" id="select-file-btn">Выбрать файл</button>
+                <div id="upload-form" style="display: none;">
+                    <input type="text" id="upload-title" placeholder="Название видео">
+                    <button class="btn-primary" id="submit-upload-btn" style="margin-top: 10px;">Загрузить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= МОДАЛКА ВХОДА / РЕГИСТРАЦИИ ================= -->
+    <div id="login-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Вход в аккаунт</h2>
+                <button class="icon-btn" onclick="document.getElementById('login-modal').style.display='none'"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="login-username" placeholder="Логин (email)">
+                <input type="password" id="login-password" placeholder="Пароль">
+                <button class="btn-primary" onclick="loginUser()">Войти</button>
+                <button class="btn-primary" style="background: #3f3f3f; color: white;" onclick="registerUser()">Зарегистрироваться</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= СКРИПТЫ ================= -->
+    <script>
+        // 1. Сворачивание сайдбара
+        document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
+            document.body.classList.toggle('sidebar-collapsed');
+        });
+
+        // 2. Динамическая шапка (проверка авторизации)
+        function updateHeader() {
+            const token = localStorage.getItem('token');
+            const userName = localStorage.getItem('user_name');
+            const headerRight = document.getElementById('header-right-dynamic');
+            
+            if (token && userName) {
+                // Если авторизован, показываем кнопку "Создать" и аватар с буквой
+                const firstLetter = userName.charAt(0).toUpperCase();
+                
+                headerRight.innerHTML = `
+                    <button class="create-btn" onclick="document.getElementById('upload-modal').style.display='flex'">
+                        <i class="ph ph-plus"></i> Создать
+                    </button>
+                    <div class="avatar-letter" title="${userName}" onclick="logout()">
+                        ${firstLetter}
+                    </div>
+                `;
+            } else {
+                // Если не авторизован, показываем "Войти"
+                headerRight.innerHTML = `
+                    <button class="create-btn" onclick="document.getElementById('login-modal').style.display='flex'">
+                        <i class="ph ph-user"></i> Войти
+                    </button>
+                `;
+            }
+        }
+
+        // Функция выхода
+        function logout() {
+            if (confirm('Выйти из аккаунта?')) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user_name');
+                window.location.reload();
+            }
+        }
+
+        // 3. Логика модалки загрузки видео
+        document.getElementById('select-file-btn').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+        
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                document.getElementById('upload-form').style.display = 'block';
+                document.getElementById('select-file-btn').style.display = 'none';
+                document.getElementById('upload-title').value = e.target.files[0].name.split('.')[0];
+            }
+        });
+
+        document.getElementById('submit-upload-btn').addEventListener('click', async () => {
+            const file = document.getElementById('file-input').files[0];
+            const title = document.getElementById('upload-title').value;
+            if (!file || !title) return alert('Выберите файл и укажите название');
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('title', title);
+            formData.append('description', '');
+
+            try {
+                const res = await fetch('/videos', { method: 'POST', body: formData });
+                if (res.ok) {
+                    alert('Успешно!');
+                    window.location.reload();
+                } else {
+                    alert('Ошибка при загрузке');
+                }
+            } catch (e) {
+                alert('Ошибка сети');
+            }
+        });
+
+        // 4. Логика авторизации
+        async function loginUser() {
+            const email = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            if (!email || !password) return alert('Введите логин и пароль');
+
+            const formData = new URLSearchParams();
+            formData.append('username', email);
+            formData.append('password', password);
+
+            try {
+                const res = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('token', data.access_token);
+                    localStorage.setItem('user_name', email); // Сохраняем логин для аватара
+                    alert('Вход выполнен!');
+                    window.location.reload();
+                } else {
+                    const err = await res.json();
+                    alert(`Ошибка: ${err.detail || 'Неверный логин или пароль'}`);
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Ошибка сети');
+            }
+        }
+
+        async function registerUser() {
+            const email = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                const res = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (res.ok) {
+                    alert('Регистрация успешна! Теперь войдите.');
+                } else {
+                    alert('Ошибка регистрации');
+                }
+            } catch (e) {
+                alert('Ошибка сети');
+            }
+        }
+        // Логика поиска
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', () => {
+                const query = searchInput.value.trim();
+                if (query) {
+                    window.location.href = `/search?q=${encodeURIComponent(query)}`;
+                }
+            });
+            
+            // Поиск по Enter
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchBtn.click();
+                }
+            });
+        }
+
+        // Запускаем проверку шапки при загрузке страницы
+        updateHeader();
+    </script>
+</body>
+</html>
