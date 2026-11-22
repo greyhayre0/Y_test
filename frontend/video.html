@@ -4,7 +4,6 @@
 
 {% block content %}
 <style>
-    /* Дополнительные стили для страницы видео */
     .video-page-container { display: flex; gap: 24px; max-width: 1400px; margin: 0 auto; }
     .primary-column { flex: 1; min-width: 0; }
     .secondary-column { width: 380px; flex-shrink: 0; }
@@ -25,11 +24,12 @@
     .subscribe-btn.subscribed { background: var(--bg-chip); color: var(--text-main); }
     .subscribe-btn.subscribed:hover { background: #3f3f3f; }
 
-    .actions-group { display: flex; gap: 8px; }
+    .actions-group { display: flex; gap: 8px; flex-wrap: wrap; }
     .action-btn { display: flex; align-items: center; gap: 6px; background: var(--bg-chip); color: var(--text-main); border: none; padding: 8px 16px; border-radius: 20px; font-weight: 500; cursor: pointer; }
     .action-btn:hover { background: #3f3f3f; }
     .action-btn i { font-size: 18px; }
     .action-btn.active { background: #3ea6ff; color: #0f0f0f; }
+    .action-btn.report:hover { background: #7a1f1f; }
 
     .description-box { background: var(--bg-chip); padding: 12px 16px; border-radius: 12px; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
     .description-box .stats { margin-bottom: 8px; color: var(--text-main); font-weight: bold; }
@@ -43,10 +43,12 @@
 
     .comment-item { display: flex; gap: 16px; margin-bottom: 20px; }
     .comment-content { flex: 1; }
-    .comment-header { font-size: 13px; margin-bottom: 4px; }
-    .comment-header .author { font-weight: bold; margin-right: 8px; }
+    .comment-header { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 4px; }
+    .comment-header .author { font-weight: bold; }
     .comment-header .date { color: var(--text-muted); }
     .comment-text { font-size: 14px; line-height: 1.4; white-space: pre-wrap; }
+    .comment-delete-btn { margin-left: auto; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 6px; }
+    .comment-delete-btn:hover { color: #ff4e45; background: rgba(255,78,69,0.1); }
 
     /* Рекомендации */
     .recommendation-item { display: flex; gap: 8px; margin-bottom: 12px; cursor: pointer; text-decoration: none; color: inherit; }
@@ -55,21 +57,20 @@
     .rec-info { flex: 1; }
     .rec-info h4 { font-size: 14px; font-weight: 500; line-height: 1.3; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .rec-info p { font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
+
+    /* Модалка жалобы */
+    #report-reason { width: 100%; box-sizing: border-box; background: var(--bg-chip); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); padding: 10px; font-size: 14px; resize: vertical; font-family: inherit; }
 </style>
 
 <div class="video-page-container">
-    <!-- ЛЕВАЯ КОЛОНКА (Плеер и Комментарии) -->
     <div class="primary-column">
 
-        <!-- Плеер -->
         <div class="player-wrapper">
             <video id="video-player" controls></video>
         </div>
 
-        <!-- Заголовок -->
         <h1 class="video-title" id="video-title">Загрузка...</h1>
 
-        <!-- Канал и действия -->
         <div class="video-actions-row">
             <div class="channel-info">
                 <div class="channel-avatar" id="channel-avatar"></div>
@@ -82,19 +83,17 @@
 
             <div class="actions-group">
                 <button class="action-btn" id="like-btn"><i class="ph ph-thumbs-up"></i> <span id="like-count">0</span></button>
-                <!-- TODO: дизлайк — нужен эндпоинт на бэкенде -->
                 <button class="action-btn" id="dislike-btn"><i class="ph ph-thumbs-down"></i></button>
                 <button class="action-btn" id="share-btn"><i class="ph ph-share-network"></i> Поделиться</button>
+                <button class="action-btn report" id="report-btn"><i class="ph ph-flag"></i> Пожаловаться</button>
             </div>
         </div>
 
-        <!-- Описание -->
         <div class="description-box">
             <div class="stats" id="video-stats">0 просмотров</div>
             <p id="video-description">Описание видео...</p>
         </div>
 
-        <!-- Комментарии -->
         <div class="comments-section">
             <div class="comments-header">Комментарии</div>
 
@@ -109,32 +108,46 @@
         </div>
     </div>
 
-    <!-- ПРАВАЯ КОЛОНКА (Рекомендации) -->
     <div class="secondary-column">
         <h3 style="font-size: 16px; margin-bottom: 16px; font-weight: 500;">Похожие видео</h3>
-        <div id="recommendations-list">
-            <!-- Сюда JS вставит рекомендации -->
+        <div id="recommendations-list"></div>
+    </div>
+</div>
+
+<!-- ================= МОДАЛКА ЖАЛОБЫ ================= -->
+<div id="report-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-header">
+            <h2>Пожаловаться на видео</h2>
+            <button class="icon-btn" onclick="closeReportModal()"><i class="ph ph-x"></i></button>
+        </div>
+        <div class="modal-body">
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">
+                Опишите причину. Модераторы рассмотрят жалобу: если нарушение подтвердится, видео будет удалено.
+            </p>
+            <textarea id="report-reason" rows="4" maxlength="1000" placeholder="Причина жалобы..."></textarea>
+            <button class="btn-primary" id="report-submit-btn" style="margin-top: 12px;" onclick="submitReport()">
+                Отправить жалобу
+            </button>
         </div>
     </div>
 </div>
 
-<!-- ================= СКРИПТЫ ДЛЯ СТРАНИЦЫ ВИДЕО ================= -->
 <script>
-    // tojson безопасно сериализует значение (не сломает скрипт, если video_id отсутствует)
     const videoId = {{ video_id | tojson }};
-    // Относительные пути: страница и API на одном origin, работает и при деплое
     const API_URL = '';
+
+    let currentUser = null;   // { id, role, email } — узнаём из /profile/me
+    let videoOwnerId = null;  // узнаём из /videos/{id}
 
     // ---------- Утилиты ----------
 
-    // Защита от XSS: всё, что вставляется через innerHTML, экранируем
     function escapeHtml(s) {
         return String(s ?? '').replace(/[&<>"']/g, ch => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         }[ch]));
     }
 
-    // Плюрализация: plural(5, 'подписчик', 'подписчика', 'подписчиков')
     function plural(n, one, few, many) {
         n = Math.abs(Number(n) || 0) % 100;
         const n1 = n % 10;
@@ -144,21 +157,41 @@
         return many;
     }
 
-    function fmtDate(iso) {
-        return iso ? new Date(iso).toLocaleDateString() : '';
-    }
-
+    function fmtDate(iso) { return iso ? new Date(iso).toLocaleDateString() : ''; }
     function subsText(count) {
         count = count || 0;
         return `${count} ${plural(count, 'подписчик', 'подписчика', 'подписчиков')}`;
     }
+    function authHeaders(extra) {
+        const token = localStorage.getItem('token');
+        return Object.assign({}, token ? { 'Authorization': `Bearer ${token}` } : {}, extra || {});
+    }
 
-    // 1. Загрузка данных о видео
+    // ---------- Текущий пользователь (для прав на удаление) ----------
+
+    async function loadCurrentUser() {
+        if (!localStorage.getItem('token')) return;
+        try {
+            const r = await fetch(`${API_URL}/profile/me`, { headers: authHeaders() });
+            if (r.ok) currentUser = await r.json();
+        } catch (e) { console.error('Не удалось получить пользователя:', e); }
+    }
+
+    function canDeleteComment(c) {
+        if (!currentUser) return false;
+        if (['moderator', 'admin'].includes(currentUser.role)) return true;
+        if (videoOwnerId === currentUser.id) return true;          // владелец видео
+        return c.user_id != null && c.user_id === currentUser.id;  // автор комментария
+    }
+
+    // 1. Загрузка видео
     async function loadVideo() {
         try {
             const res = await fetch(`${API_URL}/videos/${videoId}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const v = await res.json();
+
+            videoOwnerId = v.owner_id;
 
             document.getElementById('video-title').textContent = v.title;
             document.getElementById('video-description').textContent = v.description || 'Нет описания';
@@ -169,46 +202,34 @@
                 v.created_at ? `${viewsStr} • ${fmtDate(v.created_at)}` : viewsStr;
 
             document.getElementById('like-count').textContent = v.likes_count || 0;
-            // Начальное состояние кнопки лайка (если API отдаёт liked_by_me)
             document.getElementById('like-btn').classList.toggle('active', !!v.liked_by_me);
 
-            // Инфу о канале грузим параллельно, не блокируя плеер
             loadChannel(v.owner_id);
 
             const player = document.getElementById('video-player');
             if (v.file_path) {
-                player.src = `${API_URL}${v.file_path}`;
+                const token = localStorage.getItem('token');
+                // <video> не умеет слать Authorization-заголовок, поэтому токен в query
+                player.src = `${API_URL}/videos/${videoId}/stream` +
+                    (token ? `?token=${encodeURIComponent(token)}` : '');
             }
-        } catch (e) {
-            console.error('Ошибка загрузки видео:', e);
-            document.getElementById('video-title').textContent = 'Ошибка загрузки видео';
-        }
-    }
 
-    // 1.1. Загрузка информации о канале и кнопки подписки
+    // 1.1. Канал и подписка
     async function loadChannel(channelId) {
         const btn = document.getElementById('subscribe-btn');
         const subsEl = document.getElementById('channel-subs');
         const nameEl = document.getElementById('channel-name');
         const avatarEl = document.getElementById('channel-avatar');
+        const token = localStorage.getItem('token');
 
-        const token = localStorage.getItem('token'); // единый ключ токена по всему проекту
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-
-        // По умолчанию кнопка видна; для анонима — предложение войти
         btn.style.display = 'inline-block';
         btn.classList.remove('subscribed');
         btn.textContent = 'Подписаться';
         btn.onclick = () => alert('Войдите, чтобы подписаться');
 
         try {
-            // Имя канала и счётчик — публичная информация, грузим и без токена.
-            // (Эндпоинт /subscriptions/channel/{id} должен пускать анонимов.)
-            const r = await fetch(`${API_URL}/subscriptions/channel/${channelId}`, { headers });
-            if (!r.ok) {
-                console.error('Не удалось загрузить инфо о канале:', r.status);
-                return;
-            }
+            const r = await fetch(`${API_URL}/subscriptions/channel/${channelId}`, { headers: authHeaders() });
+            if (!r.ok) { console.error('Не удалось загрузить инфо о канале:', r.status); return; }
             const info = await r.json();
 
             const email = info.email || '';
@@ -217,10 +238,7 @@
             avatarEl.style.cssText = 'width:40px;height:40px;border-radius:50%;background:#c2185b;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;';
             subsEl.textContent = subsText(info.subscribers_count);
 
-            if (info.is_own_channel) {
-                btn.style.display = 'none';
-                return;
-            }
+            if (info.is_own_channel) { btn.style.display = 'none'; return; }
 
             const setSubscribed = (flag) => {
                 btn.textContent = flag ? 'Вы подписаны' : 'Подписаться';
@@ -232,8 +250,7 @@
                 if (!token) return alert('Войдите, чтобы подписаться');
                 try {
                     const r2 = await fetch(`${API_URL}/subscriptions/${channelId}/toggle`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}` }
+                        method: 'POST', headers: authHeaders()
                     });
                     if (!r2.ok) {
                         if (r2.status === 401) return alert('Войдите заново');
@@ -242,17 +259,12 @@
                     const data = await r2.json();
                     setSubscribed(!!data.is_subscribed);
                     subsEl.textContent = subsText(data.subscribers_count);
-                } catch (err) {
-                    console.error('Ошибка подписки:', err);
-                    alert('Ошибка сети');
-                }
+                } catch (err) { console.error('Ошибка подписки:', err); alert('Ошибка сети'); }
             };
-        } catch (e) {
-            console.error('Ошибка загрузки канала:', e);
-        }
+        } catch (e) { console.error('Ошибка загрузки канала:', e); }
     }
 
-    // 2. Загрузка комментариев
+    // 2. Комментарии (с кнопкой удаления для тех, у кого есть права)
     async function loadComments() {
         const list = document.getElementById('comments-list');
         try {
@@ -265,25 +277,46 @@
                 return;
             }
 
-            list.innerHTML = comments.map(c => `
+            list.innerHTML = comments.map(c => {
+                const delBtn = canDeleteComment(c)
+                    ? `<button class="comment-delete-btn" data-id="${Number(c.id)}" title="Удалить комментарий"><i class="ph ph-trash"></i></button>`
+                    : '';
+                return `
                 <div class="comment-item">
                     <div class="channel-avatar"></div>
                     <div class="comment-content">
                         <div class="comment-header">
                             <span class="author">${escapeHtml(c.user_email)}</span>
                             <span class="date">${fmtDate(c.created_at)}</span>
+                            ${delBtn}
                         </div>
                         <div class="comment-text">${escapeHtml(c.text)}</div>
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         } catch (e) {
             console.error('Ошибка загрузки комментариев:', e);
             list.innerHTML = '<p style="color: #aaa;">Не удалось загрузить комментарии.</p>';
         }
     }
 
-    // 3. Загрузка рекомендаций
+    // Удаление комментария (делегирование событий)
+    document.getElementById('comments-list').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.comment-delete-btn');
+        if (!btn) return;
+        if (!confirm('Удалить комментарий?')) return;
+        try {
+            const res = await fetch(`${API_URL}/comments/${btn.dataset.id}`, {
+                method: 'DELETE', headers: authHeaders()
+            });
+            if (res.ok) loadComments();
+            else if (res.status === 403) alert('Нет прав на удаление этого комментария');
+            else if (res.status === 401) alert('Войдите заново');
+            else alert('Не удалось удалить комментарий');
+        } catch (err) { console.error(err); alert('Ошибка сети'); }
+    });
+
+    // 3. Рекомендации
     async function loadRecommendations() {
         const list = document.getElementById('recommendations-list');
         try {
@@ -295,7 +328,6 @@
                 list.innerHTML = '<p style="color: #aaa;">Пока нет других видео.</p>';
                 return;
             }
-
             list.innerHTML = videos.map(v => {
                 const views = v.views || 0;
                 return `
@@ -318,88 +350,103 @@
 
     // 4. Отправка комментария
     const commentInput = document.getElementById('comment-input');
-    let commentSending = false; // защита от двойной отправки
+    let commentSending = false;
 
     commentInput.addEventListener('keydown', async (e) => {
         if (e.key !== 'Enter' || commentSending) return;
         const text = commentInput.value.trim();
         if (!text) return;
-
-        const token = localStorage.getItem('token');
-        if (!token) return alert('Чтобы оставить комментарий, нужно войти в аккаунт!');
-        // NB: поле НЕ очищаем до успешной отправки — текст не потеряется при ошибке
+        if (!localStorage.getItem('token')) return alert('Чтобы оставить комментарий, нужно войти в аккаунт!');
 
         commentSending = true;
         try {
             const res = await fetch(`${API_URL}/videos/${videoId}/comments`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ text })
             });
-
             if (res.ok) {
-                commentInput.value = ''; // очищаем только после успеха
+                commentInput.value = '';
                 loadComments();
             } else {
                 let detail = 'Не удалось отправить комментарий';
-                try {
-                    const err = await res.json();
-                    if (typeof err.detail === 'string') detail = err.detail;
-                } catch (_) { /* тело не JSON */ }
+                try { const err = await res.json(); if (typeof err.detail === 'string') detail = err.detail; } catch (_) {}
                 alert(`Ошибка: ${detail}`);
             }
-        } catch (err) {
-            console.error('Ошибка отправки комментария:', err);
-            alert('Ошибка сети');
-        } finally {
-            commentSending = false;
-        }
+        } catch (err) { console.error(err); alert('Ошибка сети'); }
+        finally { commentSending = false; }
     });
 
     // 5. Лайк
     document.getElementById('like-btn').addEventListener('click', async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return alert('Войдите, чтобы поставить лайк');
-
+        if (!localStorage.getItem('token')) return alert('Войдите, чтобы поставить лайк');
         try {
-            const res = await fetch(`${API_URL}/videos/${videoId}/like`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
+            const res = await fetch(`${API_URL}/videos/${videoId}/like`, { method: 'POST', headers: authHeaders() });
             if (res.ok) {
                 const data = await res.json();
                 document.getElementById('like-count').textContent = data.likes_count ?? 0;
                 if (typeof data.liked_by_me === 'boolean') {
                     document.getElementById('like-btn').classList.toggle('active', data.liked_by_me);
                 }
-            } else if (res.status === 401) {
-                alert('Вы не авторизованы (или токен истёк). Войдите заново.');
-            } else {
-                alert('Ошибка лайка.');
-            }
-        } catch (err) {
-            console.error('Ошибка лайка:', err);
-            alert('Ошибка сети');
-        }
+            } else if (res.status === 401) alert('Вы не авторизованы (или токен истёк). Войдите заново.');
+            else alert('Ошибка лайка.');
+        } catch (err) { console.error(err); alert('Ошибка сети'); }
     });
 
-    // 6. Поделиться — копируем ссылку на видео
+    // 6. Поделиться
     document.getElementById('share-btn').addEventListener('click', async () => {
         try {
             await navigator.clipboard.writeText(window.location.href);
             alert('Ссылка скопирована в буфер обмена');
-        } catch {
-            prompt('Скопируйте ссылку:', window.location.href);
-        }
+        } catch { prompt('Скопируйте ссылку:', window.location.href); }
     });
 
-    // Запуск при загрузке
-    document.addEventListener('DOMContentLoaded', () => {
-        loadVideo();
+    // 7. Жалоба на видео
+    document.getElementById('report-btn').addEventListener('click', () => {
+        if (!localStorage.getItem('token')) return alert('Войдите, чтобы пожаловаться на видео');
+        document.getElementById('report-reason').value = '';
+        document.getElementById('report-modal').style.display = 'flex';
+    });
+
+    function closeReportModal() {
+        document.getElementById('report-modal').style.display = 'none';
+    }
+
+    async function submitReport() {
+        const reason = document.getElementById('report-reason').value.trim();
+        if (!reason) return alert('Укажите причину жалобы');
+
+        const btn = document.getElementById('report-submit-btn');
+        btn.disabled = true;
+        try {
+            const res = await fetch(`${API_URL}/videos/${videoId}/report`, {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ reason })
+            });
+            if (res.ok) {
+                closeReportModal();
+                alert('Жалоба отправлена. Модераторы рассмотрят её.');
+            } else if (res.status === 409) {
+                alert('Вы уже жаловались на это видео');
+            } else if (res.status === 401) {
+                alert('Войдите заново');
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert('Ошибка: ' + (typeof err.detail === 'string' ? err.detail : 'не удалось отправить жалобу'));
+            }
+        } catch (err) { console.error(err); alert('Ошибка сети'); }
+        finally { btn.disabled = false; }
+    }
+
+    document.getElementById('report-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'report-modal') closeReportModal();
+    });
+
+    // Запуск: сначала узнаём пользователя и владельца видео, потом рисуем комментарии
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadCurrentUser();
+        await loadVideo();
         loadComments();
         loadRecommendations();
     });

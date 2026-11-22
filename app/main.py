@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 
-from app.routers import auth, videos, comments, profile, subscriptions
+from app.routers import access, auth, moderation, videos, comments, profile, subscriptions
 from app.database import Base, engine, async_session
 from app.models import User, Video  # импорт модуля регистрирует ВСЕ модели в Base.metadata
 
@@ -46,10 +46,13 @@ templates = Jinja2Templates(directory="frontend")
 
 # --- API ---
 app.include_router(auth.router)
+app.include_router(access.router)
 app.include_router(videos.router)
 app.include_router(comments.router)
 app.include_router(profile.router)
 app.include_router(subscriptions.router)
+app.include_router(moderation.router)
+
 
 
 # --- СТРАНИЦЫ ---
@@ -112,3 +115,7 @@ async def public_profile(request: Request, user_id: int):
         name="profile.html",
         context={"is_authenticated": False, "profile_user_id": user_id},
     )
+
+@app.get("/moderation", response_class=HTMLResponse)
+async def moderation_page(request: Request):
+    return templates.TemplateResponse(request=request, name="moderation.html", context={"is_authenticated": False})
