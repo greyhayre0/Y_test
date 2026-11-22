@@ -68,6 +68,9 @@
             </a>
             <li><i class="ph ph-play-square"></i> <span>Shorts</span></li>
             <li><i class="ph ph-subtitles"></i> <span>Подписки</span></li>
+            <a href="/profile" style="text-decoration: none; color: inherit;">
+                <li><i class="ph ph-user-circle"></i> <span>Личный кабинет</span></li>
+            </a>
         </ul>
     </aside>
 
@@ -179,7 +182,14 @@
             formData.append('description', '');
 
             try {
-                const res = await fetch('/videos', { method: 'POST', body: formData });
+                const res = await fetch('/videos', { 
+                    method: 'POST', 
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}` // ✅ Добавили
+                        // Content-Type указывать НЕ НУЖНО, браузер сам его подставит для FormData
+                    },
+                    body: formData 
+                });
                 if (res.ok) {
                     alert('Успешно!');
                     window.location.reload();
@@ -268,5 +278,6 @@
         // Запускаем проверку шапки при загрузке страницы
         updateHeader();
     </script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

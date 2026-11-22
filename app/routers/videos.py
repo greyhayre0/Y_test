@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status, File, UploadFile, Form
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
@@ -7,10 +8,10 @@ import os
 import uuid
 import shutil
 
-from app.database import async_session
+from app.database import async_session, get_db
 from app.models import User, Video, Like
 from app.schemas import VideoOut
-from app.auth import get_current_active_user
+from app.auth import get_current_active_user, get_current_user
 
 router = APIRouter()
 
@@ -187,3 +188,28 @@ async def delete_video(video_id: int, current_user: User = Depends(get_current_a
         await session.commit()
         
     return None
+
+class VideoUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    is_private: Optional[bool] = None
+
+@router.patch("/{video_id}", response_model=VideoOut)
+async def update_video(
+    video_id: int,
+    payload: VideoUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Video).where(Video.id == video_id))
+    video = result.scalar_one_or_none()
+    if not video:
+        raise HTTPException(404, "Видео не найдено")
+    if video.owner_id != current_user.id and current_user.role not in ("admin", "moderator"):
+        raise HTTPException(403, "Нет прав")
+    if payload.title is not None:       video.title = payload.title
+    if payload.description is not None: video.description = payload.description
+    if payload.is_private is not None:  video.is_private = payload.is_private
+    await db.commit()
+    await db.refresh(video)
+    return video

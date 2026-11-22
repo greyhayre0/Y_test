@@ -4,7 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 
-from app.database import Video, async_session
+from app.database import async_session
+from app.models import Video
 from app.models import User, Comment
 from app.schemas import CommentCreate, CommentOut
 from app.auth import get_current_active_user
