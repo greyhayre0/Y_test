@@ -12,7 +12,7 @@ from app.auth import get_current_user  # поправь путь под свой
 from app.config import settings
 from app.database import get_db
 from app.models import User, Video, VideoAccess
-
+print("=== ACCESS ROUTER LOADED ===", __file__)
 router = APIRouter(tags=["access"])
 
 
