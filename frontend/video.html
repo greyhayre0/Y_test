@@ -184,7 +184,7 @@
         return c.user_id != null && c.user_id === currentUser.id;  // автор комментария
     }
 
-    // 1. Загрузка видео
+   // 1. Загрузка видео
     async function loadVideo() {
         try {
             const res = await fetch(`${API_URL}/videos/${videoId}`);
@@ -208,11 +208,13 @@
 
             const player = document.getElementById('video-player');
             if (v.file_path) {
-                const token = localStorage.getItem('token');
-                // <video> не умеет слать Authorization-заголовок, поэтому токен в query
-                player.src = `${API_URL}/videos/${videoId}/stream` +
-                    (token ? `?token=${encodeURIComponent(token)}` : '');
+                player.src = v.file_path;
             }
+        } catch (e) {
+            console.error('Ошибка загрузки видео:', e);
+            document.getElementById('video-title').textContent = 'Не удалось загрузить видео';
+        }
+    }
 
     // 1.1. Канал и подписка
     async function loadChannel(channelId) {

@@ -194,7 +194,7 @@ class VideoUpdate(BaseModel):
     description: Optional[str] = None
     is_private: Optional[bool] = None
 
-@router.patch("/{video_id}", response_model=VideoOut)
+@router.patch("/videos/{video_id}", response_model=VideoOut)
 async def update_video(
     video_id: int,
     payload: VideoUpdate,
