@@ -31,6 +31,12 @@ app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 # Шаблонизатор
 templates = Jinja2Templates(directory="frontend")
 
+# --- API ---
+# Если в auth.py уже есть prefix="/auth", то здесь его быть не должно!
+app.include_router(auth.router) 
+app.include_router(videos.router)
+app.include_router(comments.router)
+
 # --- СТРАНИЦЫ ---
 
 @app.get("/", response_class=HTMLResponse)
@@ -82,11 +88,6 @@ async def read_search(request: Request):
         context={"is_authenticated": False}
     )
 
-# --- API ---
-# Если в auth.py уже есть prefix="/auth", то здесь его быть не должно!
-app.include_router(auth.router) 
-app.include_router(videos.router)
-app.include_router(comments.router)
 
 @app.on_event("shutdown")
 async def shutdown():

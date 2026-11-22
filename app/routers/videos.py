@@ -36,6 +36,42 @@ ALLOWED_EXT = {"mp4", "mov", "webm", "mkv"}
 MAX_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
 CHUNK = 1024 * 1024  # 1 MB
 
+# --- 4. Лайк / Дизлайк видео --- смена порядка
+@router.post("/videos/{video_id}/like")
+async def like_video(
+    video_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    async with async_session() as session:
+        # Проверяем, есть ли уже лайк от этого юзера
+        result = await session.execute(
+            select(Like).where(Like.video_id == video_id, Like.user_id == current_user.id)
+        )
+        existing_like = result.scalar_one_or_none()
+
+        if existing_like:
+            # Убираем лайк
+            await session.delete(existing_like)
+            await session.execute(
+                update(Video).where(Video.id == video_id).values(likes_count=Video.likes_count - 1)
+            )
+            message = "Лайк убран"
+        else:
+            # Ставим лайк
+            new_like = Like(video_id=video_id, user_id=current_user.id)
+            session.add(new_like)
+            await session.execute(
+                update(Video).where(Video.id == video_id).values(likes_count=Video.likes_count + 1)
+            )
+            message = "Лайк поставлен"
+
+        await session.commit()
+        
+        # Получаем актуальное количество
+        res = await session.execute(select(Video.likes_count).where(Video.id == video_id))
+        likes_count = res.scalar()
+
+    return {"message": message, "likes_count": likes_count}
 
 @router.post("/videos", response_model=VideoOut)
 async def upload_video(
@@ -128,44 +164,6 @@ async def get_video(video_id: int):
             raise HTTPException(status_code=404, detail="Video not found")
             
     return video
-
-
-# --- 4. Лайк / Дизлайк видео ---
-@router.post("/videos/{video_id}/like")
-async def like_video(
-    video_id: int,
-    current_user: User = Depends(get_current_active_user)
-):
-    async with async_session() as session:
-        # Проверяем, есть ли уже лайк от этого юзера
-        result = await session.execute(
-            select(Like).where(Like.video_id == video_id, Like.user_id == current_user.id)
-        )
-        existing_like = result.scalar_one_or_none()
-
-        if existing_like:
-            # Убираем лайк
-            await session.delete(existing_like)
-            await session.execute(
-                update(Video).where(Video.id == video_id).values(likes_count=Video.likes_count - 1)
-            )
-            message = "Лайк убран"
-        else:
-            # Ставим лайк
-            new_like = Like(video_id=video_id, user_id=current_user.id)
-            session.add(new_like)
-            await session.execute(
-                update(Video).where(Video.id == video_id).values(likes_count=Video.likes_count + 1)
-            )
-            message = "Лайк поставлен"
-
-        await session.commit()
-        
-        # Получаем актуальное количество
-        res = await session.execute(select(Video.likes_count).where(Video.id == video_id))
-        likes_count = res.scalar()
-
-    return {"message": message, "likes_count": likes_count}
 
 
 # --- 5. Удаление видео ---

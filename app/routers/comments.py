@@ -11,6 +11,34 @@ from app.auth import get_current_active_user
 
 router = APIRouter()
 
+# 2. Создание комментария (только для авторизованных) смена порядка
+@router.post("/videos/{video_id}/comments", response_model=CommentOut)
+async def create_comment(
+    video_id: int,
+    payload: CommentCreate,
+    current_user: User = Depends(get_current_active_user),
+):
+    async with async_session() as session:
+        video = await session.get(Video, video_id)
+        if not video:
+            raise HTTPException(404, "Видео не найдено")
+
+        comment = Comment(
+            video_id=video_id,
+            user_id=current_user.id,
+            text=payload.text,
+        )
+        session.add(comment)
+        await session.commit()
+        await session.refresh(comment)
+
+        return CommentOut(
+            id=comment.id,
+            text=comment.text,
+            user_email=current_user.email,   # <- просто email, без username
+            created_at=comment.created_at,
+        )
+    
 # 1. Получение комментариев (доступно всем, без обязательной авторизации)
 @router.get("/videos/{video_id}/comments", response_model=List[CommentOut])
 async def get_comments(video_id: int):
@@ -40,33 +68,6 @@ async def get_comments(video_id: int):
             
     return comments
 
-# 2. Создание комментария (только для авторизованных)
-@router.post("/videos/{video_id}/comments", response_model=CommentOut)
-async def create_comment(
-    video_id: int,
-    payload: CommentCreate,
-    current_user: User = Depends(get_current_active_user),
-):
-    async with async_session() as session:
-        video = await session.get(Video, video_id)
-        if not video:
-            raise HTTPException(404, "Видео не найдено")
-
-        comment = Comment(
-            video_id=video_id,
-            user_id=current_user.id,
-            text=payload.text,
-        )
-        session.add(comment)
-        await session.commit()
-        await session.refresh(comment)
-
-        return CommentOut(
-            id=comment.id,
-            text=comment.text,
-            user_email=current_user.email,   # <- просто email, без username
-            created_at=comment.created_at,
-        )
 
 # 3. Удаление комментария (только автор или админ)
 @router.delete("/comments/{comment_id}", response_model=None)

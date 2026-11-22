@@ -244,15 +244,28 @@
         }
     });
 
-    // 5. Лайк
+        // 5. Лайк
     document.getElementById('like-btn').addEventListener('click', async () => {
+        // 1. Берем токен. Проверьте, под каким ключом он у вас сохранен!
+        // Скорее всего, вы сохраняли его при логине: localStorage.setItem('token', data.access_token)
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+
         try {
-            const res = await fetch(`${API_URL}/videos/${videoId}/like`, { method: 'POST' });
+            const res = await fetch(`${API_URL}/videos/${videoId}/like`, { 
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`, // <--- ВОТ ЭТОГО НЕ ХВАТАЛО
+                    'Content-Type': 'application/json'
+                }
+            });
+            
             if (res.ok) {
                 const data = await res.json();
                 document.getElementById('like-count').textContent = data.likes_count;
+            } else if (res.status === 401) {
+                alert('Ошибка лайка. Вы не авторизованы (или токен истек).');
             } else {
-                alert('Ошибка лайка. Возможно, нужна авторизация.');
+                alert('Ошибка лайка.');
             }
         } catch (err) {
             console.error(err);
